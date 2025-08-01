@@ -114,12 +114,12 @@ export const SendingOtpUserVerify = async (email) => {
                     </html>    `,
     });
 
-    return true
+    return true;
   } catch (error) {
     console.error("Error sending OTP:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
-}
+};
 
 export const Register = async (req, res) => {
   try {
@@ -130,6 +130,12 @@ export const Register = async (req, res) => {
         .json({ success: false, message: error.details[0].message });
     }
     const { firstName, lastName, email, phoneNumber, password } = req.body;
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User already exists" });
+    }
 
     const images = req.files;
 
@@ -175,7 +181,7 @@ export const Register = async (req, res) => {
       profilePic: uploadedImages[0].src,
     });
     await newUser.save();
-    SendingOtpUserVerify(email)
+    SendingOtpUserVerify(email);
     return res.status(200).json({
       success: true,
       message: "Otp Sent Please Verify",
@@ -194,7 +200,9 @@ export const googleLogin = async (req, res) => {
   const { idToken } = req.body;
 
   if (!idToken) {
-    return res.status(400).json({ success: false, message: "No token provided" });
+    return res
+      .status(400)
+      .json({ success: false, message: "No token provided" });
   }
 
   try {
@@ -205,7 +213,9 @@ export const googleLogin = async (req, res) => {
     const { email, given_name, family_name } = response.data;
 
     if (!email) {
-      return res.status(400).json({ success: false, message: "Google token invalid" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Google token invalid" });
     }
 
     // Check if user exists
@@ -237,11 +247,13 @@ export const googleLogin = async (req, res) => {
         lastName: user.lastName,
         cpf: user.cpf,
       },
-      token: token
+      token: token,
     });
   } catch (error) {
     console.error("Google login error:", error);
-    return res.status(500).json({ success: false, message: "Google login failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Google login failed" });
   }
 };
 
@@ -249,7 +261,9 @@ export const facebookLogin = async (req, res) => {
   const { accessToken, userID } = req.body;
 
   if (!accessToken || !userID) {
-    return res.status(400).json({ success: false, message: "Missing Facebook credentials" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing Facebook credentials" });
   }
 
   try {
@@ -259,7 +273,12 @@ export const facebookLogin = async (req, res) => {
     const { email, first_name, last_name } = response.data;
 
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email not found in Facebook response" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Email not found in Facebook response",
+        });
     }
 
     // Check if user exists
@@ -289,15 +308,15 @@ export const facebookLogin = async (req, res) => {
         lastName: user.lastName,
         cpf: user.cpf,
       },
-      token: token
+      token: token,
     });
   } catch (error) {
     console.error("Facebook login error:", error);
-    return res.status(500).json({ success: false, message: "Facebook login failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Facebook login failed" });
   }
 };
-
-
 
 export const ValidateOtp = async (req, res) => {
   const { email, otp } = req.body;
@@ -588,4 +607,3 @@ export const getProfile = async (req, res) => {
     });
   }
 };
-

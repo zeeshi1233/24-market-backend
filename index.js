@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import express from "express";
 import UserRouter from "./router/UserRoute.js";
 import cors from "cors";
+import productRouter from "./router/ProductRoute.js";
+import orderRoute from "./router/OrderRoute.js";
+import cartRouter from "./router/CartRoute.js";
 // import CommunityRouter from "./router/CommunityRoute.js";
 const app = express();
 const port = process.env.PORT || 3000;
@@ -16,6 +19,9 @@ app.get("/", (req, res) => {
   });
 });
 app.use("/user", UserRouter);
+app.use("/product", productRouter);
+app.use("/order", orderRoute);
+app.use("/cart",cartRouter);
 // app.use("/community", CommunityRouter);
 // ✅ Root route for confirmation
 // MongoDB Connection
