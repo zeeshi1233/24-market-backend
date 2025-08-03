@@ -158,7 +158,7 @@ export const Register = async (req, res) => {
 
         // Upload to Cloudinary
         cloudinary.uploader
-          .upload_stream({ folder: "bees" }, (error, result) => {
+          .upload_stream({ folder: "24-market" }, (error, result) => {
             if (error) {
               console.error("Cloudinary upload error:", error);
               return reject(new Error("Error uploading image to Cloudinary."));
@@ -362,6 +362,7 @@ export const ValidateOtp = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "OTP validated successfully.",
+      data:user
     });
   } catch (error) {
     console.error("Error validating OTP:", error);

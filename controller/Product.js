@@ -56,7 +56,7 @@ export const postProductAd = async (req, res) => {
         }
 
         cloudinary.uploader
-          .upload_stream({ folder: "bees" }, (error, result) => {
+          .upload_stream({ folder: "24-market" }, (error, result) => {
             if (error) {
               console.error("Cloudinary upload error:", error);
               return reject(new Error("Error uploading to Cloudinary."));
@@ -193,7 +193,7 @@ export const updateProduct = async (req, res) => {
           }
 
           const stream = cloudinary.uploader.upload_stream(
-            { folder: "bees" },
+            { folder: "24-market" },
             (error, result) => {
               if (error) {
                 console.error("Cloudinary upload error:", error);
