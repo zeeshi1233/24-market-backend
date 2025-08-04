@@ -1,28 +1,38 @@
 import mongoose from "mongoose";
 import User from "../model/UserSchema.js";
+import ProductSchema from "../model/ProductSchema.js";
 
 export const addToCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
 
+    // Check if productId is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       return res.status(400).json({ success: false, message: "Invalid product ID" });
     }
 
-    const user = await User.findById(req.user.id);
+    // Check if product exists
+    const product = await ProductSchema.findById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
 
+    // Find the user
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const existingItemIndex = user.cart?.findIndex(
-      (item) => item?.product?.toString() === productId
-    ); 
-
+    // Check if product is already in cart
+    const existingItemIndex = user.cart.findIndex(
+      (item) => item.product.toString() === productId
+    );
 
     if (existingItemIndex !== -1) {
+      // Update quantity
       user.cart[existingItemIndex].quantity += quantity || 1;
     } else {
+      // Add new item to cart
       user.cart.push({ product: productId, quantity: quantity || 1 });
     }
 
