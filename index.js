@@ -7,6 +7,7 @@ import productRouter from "./router/ProductRoute.js";
 import orderRoute from "./router/OrderRoute.js";
 import cartRouter from "./router/CartRoute.js";
 import { DbConnectionError } from "./error/DBConnectionError.js";
+import wishListRoute from "./router/WishlistRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +25,7 @@ app.use("/user", UserRouter);
 app.use("/product", productRouter);
 app.use("/order", orderRoute);
 app.use("/cart", cartRouter);
+app.use("/wishlist", wishListRoute);
 
 // ✅ MongoDB Connection + Server Start
 const start = async () => {

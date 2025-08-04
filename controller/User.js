@@ -273,12 +273,10 @@ export const facebookLogin = async (req, res) => {
     const { email, first_name, last_name } = response.data;
 
     if (!email) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Email not found in Facebook response",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Email not found in Facebook response",
+      });
     }
 
     // Check if user exists
@@ -362,7 +360,7 @@ export const ValidateOtp = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "OTP validated successfully.",
-      data:user
+      data: user,
     });
   } catch (error) {
     console.error("Error validating OTP:", error);
@@ -583,7 +581,20 @@ export const resetPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id); // Find user by ID
+
+    const user = await User.findById(id)
+      .populate({
+        path: "postedProducts",
+        model: "Product",
+      })
+      .populate({
+        path: "cart.product",
+        model: "Product",
+      })
+      .populate({
+        path: "orders",
+        model: "Order",
+      });
 
     if (!user) {
       return res.status(404).json({

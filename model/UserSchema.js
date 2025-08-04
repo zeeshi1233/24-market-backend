@@ -56,12 +56,21 @@ const userSchema = new mongoose.Schema(
       {
         product: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
+          ref: "Product", // this must match your Product model name exactly
         },
         quantity: {
           type: Number,
           default: 1,
         },
+      },
+    ],
+    wishlist: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product", // this must match your Product model name exactly
+        },
+       
       },
     ],
   },

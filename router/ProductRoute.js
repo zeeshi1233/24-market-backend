@@ -6,8 +6,8 @@ import upload from "../Middleware/uploadMiddleware.js";
 const productRouter = express.Router();
 
 productRouter.post("/sell-product",protect,upload, postProductAd);  
-productRouter.get("/get-products",protect,getAllProducts);  
-productRouter.get("/get-product/:id",protect,getSingleProductById);  
+productRouter.get("/get-products",getAllProducts);  
+productRouter.get("/get-product/:id",getSingleProductById);  
 productRouter.put("/update-product/:id",protect,upload,updateProduct);  
 productRouter.delete("/delete-product/:id",protect,deleteProduct);  
 
