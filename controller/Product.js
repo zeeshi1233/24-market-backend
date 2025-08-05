@@ -166,25 +166,36 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
+    // Validate only known fields (ignore "file")
     const { error } = productUpdateSchema.validate(req.body, { allowUnknown: true });
-
     if (error) {
       return res
         .status(400)
         .json({ success: false, message: error.details[0].message });
     }
 
-    // STEP 1: Delete old images from Cloudinary
-    if (product.images && product.images.length > 0) {
-      const deletePromises = product.images.map((img) =>
-        cloudinary.uploader.destroy(img.public_id)
-      );
-      await Promise.all(deletePromises);
+    // STEP 1: Separate existing image URLs and new binary files
+    const files = req.files || [];
+
+    let existingImageUrls = [];
+    if (req.body.file) {
+      if (Array.isArray(req.body.file)) {
+        // Multiple file[] fields
+        req.body.file.forEach((item) => {
+          if (typeof item === "string" && item.startsWith("http")) {
+            existingImageUrls.push(item);
+          }
+        });
+      } else {
+        // Single file[] field
+        if (typeof req.body.file === "string" && req.body.file.startsWith("http")) {
+          existingImageUrls.push(req.body.file);
+        }
+      }
     }
 
-    // STEP 2: Upload new images
-    let newImages = [];
-    const files = req.files || [];
+    // STEP 2: Upload new binary files to Cloudinary
+    let uploadedNewImages = [];
 
     if (files.length > 0) {
       const uploadPromises = files.map((file) => {
@@ -211,10 +222,22 @@ export const updateProduct = async (req, res) => {
         });
       });
 
-      newImages = await Promise.all(uploadPromises);
+      uploadedNewImages = await Promise.all(uploadPromises);
     }
 
-    // STEP 3: Prepare updated fields
+    // STEP 3: Combine existing image URLs and newly uploaded ones
+    let finalImages = [];
+
+    for (let url of existingImageUrls) {
+      finalImages.push({
+        url,
+        public_id: "", // No public_id for existing URLs
+      });
+    }
+
+    finalImages = [...finalImages, ...uploadedNewImages];
+
+    // STEP 4: Update other product fields
     const {
       category,
       brand,
@@ -227,7 +250,6 @@ export const updateProduct = async (req, res) => {
       showPhone,
     } = req.body;
 
-    // STEP 4: Update product in DB
     product.category = category || product.category;
     product.brand = brand || product.brand;
     product.title = title || product.title;
@@ -238,8 +260,8 @@ export const updateProduct = async (req, res) => {
     product.sellerPhone = sellerPhone || product.sellerPhone;
     product.showPhone = showPhone ?? product.showPhone;
 
-    if (newImages.length > 0) {
-      product.images = newImages;
+    if (finalImages.length > 0) {
+      product.images = finalImages;
     }
 
     await product.save();
@@ -251,11 +273,13 @@ export const updateProduct = async (req, res) => {
     });
   } catch (err) {
     console.error("Update Product Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update product" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update product",
+    });
   }
 };
+
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
