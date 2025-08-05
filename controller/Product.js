@@ -166,7 +166,8 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
 
-    const { error } = productUpdateSchema.validate(req.body);
+    const { error } = productUpdateSchema.validate(req.body, { allowUnknown: true });
+
     if (error) {
       return res
         .status(400)
