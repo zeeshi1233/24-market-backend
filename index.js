@@ -1,4 +1,4 @@
-git import "dotenv/config";
+import "dotenv/config";
 import mongoose from "mongoose";
 import express from "express";
 import UserRouter from "./router/UserRoute.js";
