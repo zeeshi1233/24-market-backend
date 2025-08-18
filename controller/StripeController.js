@@ -7,7 +7,7 @@ import { ApiError, ApiSuccess } from "../utils/ApiResponse.js";
 
 // ============ PLACE ORDER WITH STRIPE PAYMENT ============ //
 export const placeOrder = asyncHandler(async (req, res) => {
-  const userId = req?.user?.id;
+  const userId = req.user._id;
   const {
     productId,
     quantity,
@@ -20,18 +20,19 @@ export const placeOrder = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (!productId || !quantity) {
-    return ApiError(res, "Product and quantity are required", 400);
+    throw new ApiError(400, "Product and quantity are required");
   }
 
   // 1) Check product availability
   const product = await ProductSchema.findById(productId);
   if (!product || product.status === "sold") {
-    return ApiError(res, "Product not available", 400);
+    throw new ApiError(400, "Product not available");
   }
 
   // 2) Get or create Stripe customer
   const user = await User.findById(userId);
   let customerId = user.stripeCustomerId;
+
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email,
@@ -48,29 +49,26 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
   // 3) Handle payment method
   if (savedPaymentMethodId) {
-    // Use saved card
     const paymentMethod = await stripe.paymentMethods.retrieve(
       savedPaymentMethodId
     );
     if (paymentMethod.customer !== customerId) {
-      return ApiError(res, "Invalid saved card selected.", 400);
+      throw new ApiError(400, "Invalid saved card selected.");
     }
     finalPaymentMethodId = savedPaymentMethodId;
   } else {
-    // New card
     finalPaymentMethodId = paymentMethodId;
 
-    // Attach the new card to customer
-    await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: customerId,
-    });
-
     if (saveCard) {
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
       shouldSaveCard = true;
-      // Make this default card
+
       await stripe.customers.update(customerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
+
       user.stripePaymentMethodId = paymentMethodId;
       await user.save();
     }
@@ -81,27 +79,27 @@ export const placeOrder = asyncHandler(async (req, res) => {
   const paymentIntent = await stripe.paymentIntents.create({
     amount: totalAmount,
     currency: "usd",
-    customer: customerId,
     payment_method: finalPaymentMethodId,
+    customer: customerId,
+    confirmation_method: "manual",
     confirm: true,
-    automatic_payment_methods: { enabled: true, allow_redirects: "never" },
     description: `Order for ${product.title}`,
-    metadata: { userId: userId.toString(), productId: product._id.toString() },
+    metadata: {
+      userId: userId.toString(),
+      productId: product._id.toString(),
+    },
   });
-
-  // Detach card if not saving
-  if (!saveCard && !savedPaymentMethodId) {
-    await stripe.paymentMethods.detach(finalPaymentMethodId);
-  }
 
   // 5) Payment Status
   if (paymentIntent.status === "requires_action") {
-    return ApiSuccess(res, "Payment requires additional authentication", {
-      requiresAction: true,
-      clientSecret: paymentIntent.client_secret,
-    });
+    return res.status(200).json(
+      new ApiSuccess(200, "Payment requires additional authentication", {
+        requiresAction: true,
+        clientSecret: paymentIntent.client_secret,
+      })
+    );
   } else if (paymentIntent.status !== "succeeded") {
-    return ApiError(res, "Payment failed. Please try again.", 400);
+    throw new ApiError(400, "Payment failed. Please try again.");
   }
 
   // 6) Create order after success
@@ -129,8 +127,10 @@ export const placeOrder = asyncHandler(async (req, res) => {
     $push: { orders: order._id },
   });
 
-  return ApiSuccess(res, "Order placed successfully", {
-    order,
-    cardSaved: shouldSaveCard,
-  });
+  res.status(200).json(
+    new ApiSuccess(200, "Order placed successfully", {
+      order,
+      cardSaved: shouldSaveCard,
+    })
+  );
 });
