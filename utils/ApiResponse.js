@@ -1,11 +1,10 @@
-export class ApiError extends Error {
-  constructor(statusCode, message, errors = null) {
-    super(message);
-    this.statusCode = statusCode;
-    this.errors = errors;
-    this.success = false;
-  }
-}
+export const ApiError = (res, message = "Error", statusCode = 500, errors = null) => {
+  return res.status(statusCode).json({
+    success: false,
+    message,
+    errors,
+  });
+};
 
 
 export const ApiSuccess = (res, message = "Success", data = {}, statusCode = 200) => {
