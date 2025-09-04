@@ -154,12 +154,33 @@ export const getSellerOrders = asyncHandler(async (req, res) => {
   const orders = await OrderSchema.find({ seller: sellerId })
     .populate("product")
     .populate("buyer", "firstName lastName email");
-    console.log(sellerId,"sellerId")
+  console.log(sellerId, "sellerId");
   return ApiSuccess(res, "Seller orders fetched", orders);
 });
 
+export const createOnboardingLink = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const user = await User.findById(userId);
 
+  if (!user || user.role !== "seller") {
+    return ApiError(res, "Only sellers can onboard", 400);
+  }
 
+  if (!user.stripeAccountId) {
+    return ApiError(res, "Seller does not have a Stripe account", 400);
+  }
+
+  const accountLink = await stripe.accountLinks.create({
+    account: user.stripeAccountId, // seller’s connected account
+    refresh_url: "http://localhost:3000/onboarding/refresh", // agar fail ho to redirect
+    return_url: "http://localhost:3000/onboarding/success", // complete hone ke baad redirect
+    type: "account_onboarding",
+  });
+
+  return ApiSuccess(res, "Stripe onboarding link created", {
+    url: accountLink.url,
+  });
+});
 
 // Seller And Admin
 
@@ -175,8 +196,6 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   return ApiSuccess(res, "Order status updated", order);
 });
-
-
 
 export const finalizeOrder = asyncHandler(async (req, res) => {
   const { orderId, action } = req.body; // "release" or "refund"

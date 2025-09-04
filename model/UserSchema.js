@@ -67,6 +67,7 @@ const userSchema = new mongoose.Schema(
 
     // ✅ Stripe Integration (direct card payments)
     stripeCustomerId: { type: String, default: null },
+    stripeAccountId: { type: String, default: null },
     stripePaymentMethodId: {
       type: String,
       default: null,

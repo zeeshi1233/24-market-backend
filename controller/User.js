@@ -6,6 +6,7 @@ import sendEmail from "../utils/sendMails.js";
 import Otp from "../model/OtpSchema.js";
 import jwt from "jsonwebtoken";
 import axios from "axios";
+import { stripe } from "../stripe/Stripe.js";
 
 const userValidationSchema = Joi.object({
   firstName: Joi.string().required().trim(),
@@ -129,7 +130,11 @@ export const Register = async (req, res) => {
         .status(400)
         .json({ success: false, message: error.details[0].message });
     }
-    const { firstName, lastName, email, phoneNumber, password } = req.body;
+
+    const { firstName, lastName, email, phoneNumber, password, role } =
+      req.body;
+    // role = "buyer" or "seller"
+
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res
@@ -138,7 +143,6 @@ export const Register = async (req, res) => {
     }
 
     const images = req.files;
-
     if (!images || images.length === 0) {
       return res
         .status(400)
@@ -156,14 +160,13 @@ export const Register = async (req, res) => {
           return reject(new Error("File size exceeds the 10MB limit."));
         }
 
-        // Upload to Cloudinary
         cloudinary.uploader
           .upload_stream({ folder: "24-market" }, (error, result) => {
             if (error) {
               console.error("Cloudinary upload error:", error);
               return reject(new Error("Error uploading image to Cloudinary."));
             }
-            resolve({ src: result.secure_url }); // Return the image URL
+            resolve({ src: result.secure_url });
           })
           .end(image.buffer);
       });
@@ -172,6 +175,21 @@ export const Register = async (req, res) => {
     const uploadedImages = await Promise.all(uploadPromises);
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 👇 Stripe connected account create only for sellers
+    let stripeAccountId = null;
+    const account = await stripe.accounts.create({
+      type: "express", // "express" recommended for marketplace
+      country: "US",
+      email: email,
+      business_type: "individual",
+      capabilities: {
+        card_payments: { requested: true }, // 👈 add this
+        transfers: { requested: true }, // 👈 this you already had
+      },
+    });
+    stripeAccountId = account.id; // e.g. acct_12345
+
     const newUser = new User({
       firstName,
       lastName,
@@ -179,9 +197,14 @@ export const Register = async (req, res) => {
       phoneNumber,
       password: hashedPassword,
       profilePic: uploadedImages[0].src,
+      role, // buyer/seller
+      stripeAccountId, // 👈 save kar liya
     });
+
     await newUser.save();
+
     SendingOtpUserVerify(email);
+
     return res.status(200).json({
       success: true,
       message: "Otp Sent Please Verify",

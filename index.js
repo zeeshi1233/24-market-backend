@@ -9,6 +9,7 @@ import cartRouter from "./router/CartRoute.js";
 import { DbConnectionError } from "./error/DBConnectionError.js";
 import wishListRoute from "./router/WishlistRoute.js";
 import CardRoute from "./router/CardRoute.js";
+import AdminRouter from "./router/AdminRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,10 @@ app.use("/order", orderRoute);
 app.use("/cart", cartRouter);
 app.use("/wishlist", wishListRoute);
 app.use("/payment", CardRoute);
+
+// Admin Routes
+app.use("/admin", AdminRouter);
+
 
 // ✅ MongoDB Connection + Server Start
 const start = async () => {
