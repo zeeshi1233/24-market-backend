@@ -1,4 +1,4 @@
-import User from "../model/UserSchema";
+import User from "../model/UserSchema.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -29,7 +29,7 @@ export const getSingleUserById = async (req, res) => {
   }
 };
 
-export const deleteuser = async (req, res) => {
+export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 

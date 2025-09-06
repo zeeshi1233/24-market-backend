@@ -15,6 +15,7 @@ import {
   getAllOrders,
   getOrderById,
 } from "../Admin/Order.js";
+import { deleteUser, getAllUsers, getSingleUserById } from "../Admin/User.js";
 
 const AdminRouter = express.Router();
 // Auth Routes
@@ -23,6 +24,10 @@ AdminRouter.post("/login", loginAdmin);
 // Product Route
 AdminRouter.get("/get-products", protect, getAllProducts);
 AdminRouter.get("/get-single-product/:id", protect, getSingleProductById);
+// Product Route
+AdminRouter.get("/get-users", protect, getAllUsers);
+AdminRouter.get("/get-single-user/:id", protect, getSingleUserById);
+AdminRouter.delete("/delete-user/:id", protect, deleteUser);
 
 // Category
 AdminRouter.post("/create-category", protect, createCategory);
