@@ -4,6 +4,8 @@ import Stripe from "stripe";
 import asyncHandler from "../Middleware/AsyncHandlers.js";
 import OrderSchema from "../model/OrderSchema.js";
 import { ApiError, ApiSuccess } from "../utils/ApiResponse.js";
+import { stripe } from "../stripe/Stripe.js";
+import User from "../model/UserSchema.js";
 
 // Get all orders (with buyer & seller info)
 export const getAllOrders = asyncHandler(async (req, res) => {
@@ -99,5 +101,29 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
   return ApiSuccess(res, "Payment released to seller successfully", {
     order,
     transfer,
+  });
+});
+
+export const createOnboardingLink = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const user = await User.findById(userId);
+
+  if (!user || user.role !== "seller") {
+    return ApiError(res, "Only sellers can onboard", 400);
+  }
+
+  if (!user.stripeAccountId) {
+    return ApiError(res, "Seller does not have a Stripe account", 400);
+  }
+
+  const accountLink = await stripe.accountLinks.create({
+    account: user.stripeAccountId, // seller’s connected account
+    refresh_url: "http://localhost:3000/", // agar fail ho to redirect
+    return_url: "http://localhost:3000/", // complete hone ke baad redirect
+    type: "account_onboarding",
+  });
+
+  return ApiSuccess(res, "Stripe onboarding link created", {
+    url: accountLink.url,
   });
 });

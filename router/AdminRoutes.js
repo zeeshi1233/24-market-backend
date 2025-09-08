@@ -14,6 +14,7 @@ import {
   deleteOrder,
   getAllOrders,
   getOrderById,
+  releasePaymentToSeller,
 } from "../Admin/Order.js";
 import { deleteUser, getAllUsers, getSingleUserById } from "../Admin/User.js";
 
@@ -39,5 +40,6 @@ AdminRouter.get("/orders", protect, getAllOrders); // Get all orders
 AdminRouter.get("/orders/:id", protect, getOrderById); // Get single order
 AdminRouter.patch("/orders/:id", protect, adminUpdateOrderStatus); // Update status
 AdminRouter.delete("/orders/:id", protect, deleteOrder); // Delete order
+AdminRouter.post("/release-payment", protect, releasePaymentToSeller); // Release Payment order
 
 export default AdminRouter;
