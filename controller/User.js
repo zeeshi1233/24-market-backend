@@ -180,7 +180,7 @@ export const Register = async (req, res) => {
     let stripeAccountId = null;
     const account = await stripe.accounts.create({
       type: "express", // "express" recommended for marketplace
-      country: "US",
+      country: "EE",
       email: email,
       business_type: "individual",
       capabilities: {
