@@ -82,7 +82,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
     const totalAmount = product.price * quantity * 100; // cents
     paymentIntent = await stripe.paymentIntents.create({
       amount: totalAmount,
-      currency: "usd",
+      currency: "eur",
       customer: customerId,
       payment_method: finalPaymentMethodId,
       confirm: true,
@@ -207,7 +207,7 @@ export const finalizeOrder = asyncHandler(async (req, res) => {
     // Transfer money to seller Stripe account (must be connected account)
     await stripe.transfers.create({
       amount: order.totalAmount * 100, // cents
-      currency: "usd",
+      currency: "eur",
       destination: order.seller.stripeAccountId, // seller’s connected Stripe account ID
       metadata: { orderId: order._id.toString() },
     });

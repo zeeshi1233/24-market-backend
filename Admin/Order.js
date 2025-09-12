@@ -4,6 +4,7 @@ import OrderSchema from "../model/OrderSchema.js";
 import { ApiError, ApiSuccess } from "../utils/ApiResponse.js";
 import { stripe } from "../stripe/Stripe.js";
 import User from "../model/UserSchema.js";
+import ProductSchema from "../model/ProductSchema.js";
 // Get all orders (with buyer & seller info)
 export const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await OrderSchema.find()
@@ -73,7 +74,7 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
       400
     );
   }
- console.log(user)
+  console.log(user);
   if (!user.stripeAccountId) {
     return ApiError(
       res,
@@ -91,7 +92,7 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
   // ✅ Transfer seller’s share only
   const transfer = await stripe.transfers.create({
     amount: Math.round(sellerAmount * 100), // cents
-    currency: "usd",
+    currency: "eur",
     destination: user.stripeAccountId,
     metadata: {
       orderId: order._id.toString(),
@@ -134,5 +135,68 @@ export const createOnboardingLink = asyncHandler(async (req, res) => {
 
   return ApiSuccess(res, "Stripe onboarding link created", {
     url: accountLink.url,
+  });
+});
+
+const COMMISSION_RATE = 0.1;
+
+export const getAdminDashboardStats = asyncHandler(async (req, res) => {
+  // Total counts
+  const totalUsers = await User.countDocuments();
+  const totalProducts = await ProductSchema.countDocuments();
+  const totalOrders = await OrderSchema.countDocuments();
+
+  // ============= TOTAL REVENUE FROM ORDERS =============
+  const revenueData = await OrderSchema.aggregate([
+    { $match: { paymentStatus: "paid" } }, // only paid orders
+    {
+      $group: {
+        _id: null,
+        totalRevenue: { $sum: "$totalAmount" }, // total platform sales
+      },
+    },
+  ]);
+
+  const totalSales = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
+  const totalRevenue = totalSales * COMMISSION_RATE;
+
+  // ============= USERS GROWTH (GRAPH) =============
+  const userGrowth = await User.aggregate([
+    {
+      $group: {
+        _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
+        count: { $sum: 1 },
+      },
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } },
+  ]);
+
+  // ============= MONTHLY REVENUE (GRAPH) =============
+  const monthlyRevenue = await OrderSchema.aggregate([
+    { $match: { paymentStatus: "paid" } },
+    {
+      $group: {
+        _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
+        totalSales: { $sum: "$totalAmount" },
+      },
+    },
+    { $sort: { "_id.year": 1, "_id.month": 1 } },
+  ]).then((data) =>
+    data.map((d) => ({
+      month: d._id.month,
+      year: d._id.year,
+      totalSales: d.totalSales,
+      platformRevenue: d.totalSales * COMMISSION_RATE,
+    }))
+  );
+
+  return ApiSuccess(res, "Admin Dashboard Stats", {
+    totalUsers,
+    totalProducts,
+    totalOrders,
+    totalRevenue, // platform earnings
+    totalSales, // total order volume
+    userGrowth,
+    monthlyRevenue,
   });
 });

@@ -10,6 +10,7 @@ import { DbConnectionError } from "./error/DBConnectionError.js";
 import wishListRoute from "./router/WishlistRoute.js";
 import CardRoute from "./router/CardRoute.js";
 import AdminRouter from "./router/AdminRoutes.js";
+import premiumAdsRoute from "./router/PremiumAdsRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,7 @@ app.use("/order", orderRoute);
 app.use("/cart", cartRouter);
 app.use("/wishlist", wishListRoute);
 app.use("/payment", CardRoute);
+app.use("/premium-ads", premiumAdsRoute);
 
 // Admin Routes
 app.use("/admin", AdminRouter);
