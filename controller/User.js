@@ -81,7 +81,7 @@ export const SendingOtpUserVerify = async (email) => {
   try {
     const otp = generateOTP();
     const expirationTime = new Date();
-    expirationTime.setMinutes(expirationTime.getMinutes() + 10); // Set OTP expiration time to 10 minutes
+    expirationTime.setMinutes(expirationTime.getMinutes() + 10);
 
     const newOtp = new Otp({
       email,
@@ -114,11 +114,10 @@ export const SendingOtpUserVerify = async (email) => {
                     </body>
                     </html>    `,
     });
-
-    return true;
+  return true;
   } catch (error) {
     console.error("Error sending OTP:", error);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    return false;  // res hata do
   }
 };
 
@@ -201,9 +200,12 @@ export const Register = async (req, res) => {
       stripeAccountId, // 👈 save kar liya
     });
 
-    await newUser.save();
+ await newUser.save();
 
-    SendingOtpUserVerify(email);
+    const otpSent = await SendingOtpUserVerify(email);
+    if (!otpSent) {
+      return res.status(500).json({ success: false, message: "Failed to send OTP" });
+    }
 
     return res.status(200).json({
       success: true,
