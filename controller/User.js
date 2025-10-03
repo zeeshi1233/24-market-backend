@@ -255,8 +255,7 @@ export const googleLogin = async (req, res) => {
         email,
         firstName: given_name,
         lastName: family_name,
-        password: await bcrypt.hash(Math.random().toString(36).slice(-8), 10), // placeholder password
-        cpf: generateRandomCpf(), // use your existing CPF generator
+        password: await bcrypt.hash(Math.random().toString(36).slice(-8), 10), // placeholder password        
       });
 
       await user.save();
@@ -266,12 +265,7 @@ export const googleLogin = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Google login successful",
-      user: {
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        cpf: user.cpf,
-      },
+      user:user,
       token: token,
     });
   } catch (error) {
