@@ -249,12 +249,25 @@ export const googleLogin = async (req, res) => {
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET_KEY // Secret key for JWT token
     );
+     let stripeAccountId = null;
+    const account = await stripe.accounts.create({
+      type: "express", // "express" recommended for marketplace
+      country: "EE",
+      email: email,
+      business_type: "individual",
+      capabilities: {
+        card_payments: { requested: true }, // 👈 add this
+        transfers: { requested: true }, // 👈 this you already had
+      },
+    });
+    stripeAccountId = account.id; // e.g. acct_12345
     if (!user) {
       // Create user
       user = new User({
         email,
         firstName: given_name,
         lastName: family_name,
+        stripeAccountId:stripeAccountId,
         password: await bcrypt.hash(Math.random().toString(36).slice(-8), 10), // placeholder password        
       });
 
