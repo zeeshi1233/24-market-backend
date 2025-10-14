@@ -222,70 +222,86 @@ export const Register = async (req, res) => {
 };
 
 export const googleLogin = async (req, res) => {
-  const { idToken } = req.body;
+  const { idToken } = req.body; // actually access token
 
   if (!idToken) {
-    return res
-      .status(400)
-      .json({ success: false, message: "No token provided" });
+    return res.status(400).json({
+      success: false,
+      message: "No token provided",
+    });
   }
 
   try {
-    // Verify token with Google
-    const googleUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`;
-    const response = await axios.get(googleUrl);
+    // ✅ 1️⃣ Verify access token & get user info
+    const response = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: { Authorization: `Bearer ${idToken}` },
+      }
+    );
 
     const { email, given_name, family_name } = response.data;
 
     if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Google token invalid" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Google access token",
+      });
     }
 
-    // Check if user exists
+    // ✅ 2️⃣ Check if user exists
     let user = await User.findOne({ email });
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET_KEY // Secret key for JWT token
-    );
-     let stripeAccountId = null;
-    const account = await stripe.accounts.create({
-      type: "express", // "express" recommended for marketplace
-      country: "EE",
-      email: email,
-      business_type: "individual",
-      capabilities: {
-        card_payments: { requested: true }, // 👈 add this
-        transfers: { requested: true }, // 👈 this you already had
-      },
-    });
-    stripeAccountId = account.id; // e.g. acct_12345
+
+    // ✅ 3️⃣ Create new user + Stripe account if not exists
     if (!user) {
-      // Create user
+      const stripeAccount = await stripe.accounts.create({
+        type: "express",
+        country: "EE",
+        email,
+        business_type: "individual",
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+      });
+
+      const hashedPassword = await bcrypt.hash(
+        Math.random().toString(36).slice(-8),
+        10
+      );
+
       user = new User({
         email,
         firstName: given_name,
         lastName: family_name,
-        stripeAccountId:stripeAccountId,
-        password: await bcrypt.hash(Math.random().toString(36).slice(-8), 10), // placeholder password        
+        password: hashedPassword,
+        stripeAccountId: stripeAccount.id,
       });
 
       await user.save();
     }
 
-    // Return success
+    // ✅ 4️⃣ Create your own JWT
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ 5️⃣ Send response
     return res.status(200).json({
       success: true,
       message: "Google login successful",
-      user:user,
-      token: token,
+      user,
+      token,
     });
   } catch (error) {
-    console.error("Google login error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Google login failed" });
+    console.error("Google login error:", error.response?.data || error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Google login failed",
+      error: error.message,
+    });
   }
 };
 
