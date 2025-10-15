@@ -1,4 +1,3 @@
-// models/Category.js
 import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
@@ -15,9 +14,21 @@ const categorySchema = new mongoose.Schema(
       required: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }, // 👈 required for virtual populate to appear in responses
+  }
 );
 
+// 🟢 Virtual populate (auto-attach related subcategories)
+categorySchema.virtual("subCategories", {
+  ref: "SubCategory",
+  localField: "_id",
+  foreignField: "category",
+});
+
+// 🔵 SubCategory Schema
 const subCategorySchema = new mongoose.Schema(
   {
     name: {
@@ -39,6 +50,7 @@ const subCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// ✅ Models
 const Category = mongoose.model("Category", categorySchema);
 const SubCategory = mongoose.model("SubCategory", subCategorySchema);
 

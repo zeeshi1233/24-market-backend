@@ -35,46 +35,41 @@ export const postProductAd = async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.details[0].message });
     }
-    // STEP 1: Upload multiple images to Cloudinary
-    const images = req.files;
 
+    const images = req.files;
     if (!images || images.length === 0) {
       return res
         .status(400)
         .json({ success: false, message: "No image file uploaded." });
     }
 
-    const uploadPromises = images.map((image) => {
-      return new Promise((resolve, reject) => {
-        if (!image.buffer || image.buffer.length === 0) {
-          return reject(new Error("Invalid image buffer."));
-        }
+    // Upload all images
+    const uploadPromises = images.map(
+      (image) =>
+        new Promise((resolve, reject) => {
+          if (!image.buffer || image.buffer.length === 0)
+            return reject(new Error("Invalid image buffer."));
 
-        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-        if (image.size > MAX_FILE_SIZE) {
-          return reject(new Error("File size exceeds 10MB limit."));
-        }
+          const MAX_FILE_SIZE = 10 * 1024 * 1024;
+          if (image.size > MAX_FILE_SIZE)
+            return reject(new Error("File size exceeds 10MB limit."));
 
-        cloudinary.uploader
-          .upload_stream({ folder: "24-market" }, (error, result) => {
-            if (error) {
-              console.error("Cloudinary upload error:", error);
-              return reject(new Error("Error uploading to Cloudinary."));
-            }
-            resolve({
-              url: result.secure_url,
-              public_id: result.public_id,
-            });
-          })
-          .end(image.buffer);
-      });
-    });
+          cloudinary.uploader
+            .upload_stream({ folder: "24-market" }, (error, result) => {
+              if (error)
+                return reject(new Error("Error uploading to Cloudinary."));
+              resolve({ url: result.secure_url, public_id: result.public_id });
+            })
+            .end(image.buffer);
+        })
+    );
 
     const uploadedImages = await Promise.all(uploadPromises);
 
-    // STEP 2: Save product with uploaded image URLs
+    // ✅ Destructure body (now includes subCategory)
     const {
       category,
+      subCategory, // <-- added
       brand,
       title,
       description,
@@ -85,8 +80,18 @@ export const postProductAd = async (req, res) => {
       showPhone,
     } = req.body;
 
-    const newProduct = new ProductSchema({
+    // ✅ Validate category + subCategory references
+    if (!category || !subCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category and SubCategory are required.",
+      });
+    }
+
+    // ✅ Save new product
+    const newProduct = new Product({
       category,
+      subCategory,
       images: uploadedImages,
       brand,
       title,
@@ -100,15 +105,18 @@ export const postProductAd = async (req, res) => {
     });
 
     await newProduct.save();
+
     await User.findByIdAndUpdate(req.user.id, {
       $push: { postedProducts: newProduct._id },
     });
+
     res.status(200).json({
+      success: true,
       message: "Product posted successfully",
       data: newProduct,
     });
   } catch (err) {
-    console.error("Post Product Error:", err.message);
+    console.error("Post Product Error:", err);
     res.status(500).json({ error: "Failed to post product." });
   }
 };
@@ -167,7 +175,9 @@ export const updateProduct = async (req, res) => {
     }
 
     // Validate only known fields (ignore "file")
-    const { error } = productUpdateSchema.validate(req.body, { allowUnknown: true });
+    const { error } = productUpdateSchema.validate(req.body, {
+      allowUnknown: true,
+    });
     if (error) {
       return res
         .status(400)
@@ -188,7 +198,10 @@ export const updateProduct = async (req, res) => {
         });
       } else {
         // Single file[] field
-        if (typeof req.body.file === "string" && req.body.file.startsWith("http")) {
+        if (
+          typeof req.body.file === "string" &&
+          req.body.file.startsWith("http")
+        ) {
           existingImageUrls.push(req.body.file);
         }
       }
@@ -240,6 +253,7 @@ export const updateProduct = async (req, res) => {
     // STEP 4: Update other product fields
     const {
       category,
+      subCategory, // ✅ add this line
       brand,
       title,
       description,
@@ -251,6 +265,7 @@ export const updateProduct = async (req, res) => {
     } = req.body;
 
     product.category = category || product.category;
+    product.subCategory = subCategory || product.subCategory;
     product.brand = brand || product.brand;
     product.title = title || product.title;
     product.description = description || product.description;

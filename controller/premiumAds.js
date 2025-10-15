@@ -5,11 +5,11 @@ import ProductSchema from "../model/ProductSchema.js";
 import PremiumAdSchema from "../model/PremiumAdSchema.js";
 import { stripe } from "../stripe/Stripe.js";
 
-// 💰 Fee mapping
+// 💰 Updated fee mapping
 const adPricing = {
-  10: 10, // $10 for 10 days
-  20: 18, // $18 for 20 days
-  30: 25, // $25 for 30 days
+  2: 0, // ✅ Free for 2 days
+  10: 5, // €5 for 10 days
+  20: 10, // €10 for 20 days
 };
 
 export const requestPremiumAd = asyncHandler(async (req, res) => {
@@ -25,12 +25,14 @@ export const requestPremiumAd = asyncHandler(async (req, res) => {
     return ApiError(res, "Invalid ad duration", 400);
   }
 
+  // ✅ Upload images to Cloudinary
   const uploadPromises = images.map((image) => {
     return new Promise((resolve, reject) => {
-      const MAX_FILE_SIZE = 10 * 1024 * 1024;
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
       if (image.size > MAX_FILE_SIZE) {
         return reject(new Error("File size exceeds 10MB limit."));
       }
+
       cloudinary.uploader
         .upload_stream({ folder: "24-market-premium-ads" }, (error, result) => {
           if (error) return reject(new Error("Cloudinary upload failed."));
@@ -48,36 +50,47 @@ export const requestPremiumAd = asyncHandler(async (req, res) => {
     return ApiError(res, "You can only promote your own product", 403);
   }
 
-  // Stripe payment
   const adFee = adPricing[durationDays];
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: adFee * 100,
-    currency: "eur",
-    payment_method: paymentMethodId,
-    confirm: true,
-    automatic_payment_methods: {
-      enabled: true,
-      allow_redirects: "never", // 🚀 force no redirects
-    },
-  });
+  let paymentIntent = null;
+
+  // ✅ Only charge via Stripe if price > 0
+  if (adFee > 0) {
+    paymentIntent = await stripe.paymentIntents.create({
+      amount: adFee * 100,
+      currency: "eur",
+      payment_method: paymentMethodId,
+      confirm: true,
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: "never",
+      },
+    });
+  }
 
   const premiumAd = await PremiumAdSchema.create({
     product: productId,
     user: userId,
     bannerImage: bannerUrl,
-    stripePaymentId: paymentIntent.id,
+    stripePaymentId: paymentIntent ? paymentIntent.id : null,
     durationDays,
-    status: "pending",
+    status: adFee === 0 ? "approved" : "pending", // Free ads = auto approved
+    isApproved: adFee === 0, // instantly active
   });
 
-  return ApiSuccess(res, "Premium Ad requested", premiumAd);
+  return ApiSuccess(
+    res,
+    adFee === 0
+      ? "Free Premium Ad activated for 2 days!"
+      : "Premium Ad request submitted successfully.",
+    premiumAd
+  );
 });
 
 export const getUserPremiumAds = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const now = new Date();
 
-  // Expired ads ko update karo
+  // Expire old ads automatically
   await PremiumAdSchema.updateMany(
     { user: userId, expiryDate: { $lt: now }, status: "approved" },
     { $set: { status: "expired", isApproved: false } }

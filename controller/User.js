@@ -114,10 +114,10 @@ export const SendingOtpUserVerify = async (email) => {
                     </body>
                     </html>    `,
     });
-  return true;
+    return true;
   } catch (error) {
     console.error("Error sending OTP:", error);
-    return false;  // res hata do
+    return false; // res hata do
   }
 };
 
@@ -200,11 +200,13 @@ export const Register = async (req, res) => {
       stripeAccountId, // 👈 save kar liya
     });
 
- await newUser.save();
+    await newUser.save();
 
     const otpSent = await SendingOtpUserVerify(email);
     if (!otpSent) {
-      return res.status(500).json({ success: false, message: "Failed to send OTP" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to send OTP" });
     }
 
     return res.status(200).json({

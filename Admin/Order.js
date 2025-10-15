@@ -56,17 +56,21 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 });
 
 // ============ ADMIN: RELEASE PAYMENT TO SELLER AFTER DELIVERY ============ //
+const commissionRates = [
+  { min: 0, max: 100, rate: 0.05 },
+  { min: 101, max: 500, rate: 0.08 },
+  { min: 501, max: Infinity, rate: 0.12 },
+];
+
 export const releasePaymentToSeller = asyncHandler(async (req, res) => {
   const { orderId } = req.body;
 
   const order = await OrderSchema.findById(orderId).populate("seller buyer");
-
   if (!order) return ApiError(res, "Order not found", 404);
-  const user = await User.findById(order.seller._id);
+
   if (order.orderStatus !== "delivered") {
     return ApiError(res, "Order is not marked as delivered yet", 400);
   }
-
   if (order.paymentStatus !== "paid") {
     return ApiError(
       res,
@@ -74,7 +78,8 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
       400
     );
   }
-  console.log(user);
+
+  const user = await User.findById(order.seller._id);
   if (!user.stripeAccountId) {
     return ApiError(
       res,
@@ -83,15 +88,22 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
     );
   }
 
-  // --------------------------
-  const totalAmount = order.totalAmount; // in EUR/USD etc.
-  const commissionRate = 0.1; // 10%
+  const totalAmount = order.totalAmount;
+
+  // 🔍 Determine commission rate based on your table
+  let commissionRate = commissionRates.default ?? 0.1; // fallback
+  for (const slab of commissionRates) {
+    if (totalAmount >= slab.min && totalAmount <= slab.max) {
+      commissionRate = slab.rate;
+      break;
+    }
+  }
+
   const commissionAmount = totalAmount * commissionRate;
   const sellerAmount = totalAmount - commissionAmount;
 
-  // ✅ Transfer seller’s share only
   const transfer = await stripe.transfers.create({
-    amount: Math.round(sellerAmount * 100), // cents
+    amount: Math.round(sellerAmount * 100),
     currency: "eur",
     destination: user.stripeAccountId,
     metadata: {
@@ -101,12 +113,11 @@ export const releasePaymentToSeller = asyncHandler(async (req, res) => {
     },
   });
 
-  // 💾 Save commission info in DB
   order.paymentStatus = "released";
   order.commissionAmount = commissionAmount;
   await order.save();
 
-  return ApiSuccess(res, "Payment released to seller successfully", {
+  return ApiSuccess(res, "Payment released successfully", {
     order,
     commissionAmount,
     sellerAmount,
@@ -138,7 +149,12 @@ export const createOnboardingLink = asyncHandler(async (req, res) => {
   });
 });
 
-const COMMISSION_RATE = 0.1;
+function getCommissionRate(amount) {
+  const tier = commissionRates.find(
+    (slab) => amount >= slab.min && amount <= slab.max
+  );
+  return tier ? tier.rate : 0;
+}
 
 export const getAdminDashboardStats = asyncHandler(async (req, res) => {
   // Total counts
@@ -147,18 +163,15 @@ export const getAdminDashboardStats = asyncHandler(async (req, res) => {
   const totalOrders = await OrderSchema.countDocuments();
 
   // ============= TOTAL REVENUE FROM ORDERS =============
-  const revenueData = await OrderSchema.aggregate([
-    { $match: { paymentStatus: "paid" } }, // only paid orders
-    {
-      $group: {
-        _id: null,
-        totalRevenue: { $sum: "$totalAmount" }, // total platform sales
-      },
-    },
-  ]);
+  const paidOrders = await OrderSchema.find({ paymentStatus: "paid" });
 
-  const totalSales = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
-  const totalRevenue = totalSales * COMMISSION_RATE;
+  let totalSales = 0;
+  let totalRevenue = 0;
+
+  for (const order of paidOrders) {
+    totalSales += order.totalAmount;
+    totalRevenue += order.totalAmount * getCommissionRate(order.totalAmount);
+  }
 
   // ============= USERS GROWTH (GRAPH) =============
   const userGrowth = await User.aggregate([
@@ -181,22 +194,26 @@ export const getAdminDashboardStats = asyncHandler(async (req, res) => {
       },
     },
     { $sort: { "_id.year": 1, "_id.month": 1 } },
-  ]).then((data) =>
-    data.map((d) => ({
+  ]);
+
+  // Add dynamic platform revenue for each month
+  const monthlyRevenueWithCommission = monthlyRevenue.map((d) => {
+    const rate = getCommissionRate(d.totalSales);
+    return {
       month: d._id.month,
       year: d._id.year,
       totalSales: d.totalSales,
-      platformRevenue: d.totalSales * COMMISSION_RATE,
-    }))
-  );
+      platformRevenue: d.totalSales * rate,
+    };
+  });
 
   return ApiSuccess(res, "Admin Dashboard Stats", {
     totalUsers,
     totalProducts,
     totalOrders,
-    totalRevenue, // platform earnings
-    totalSales, // total order volume
+    totalRevenue: totalRevenue.toFixed(2), // platform commission total
+    totalSales: totalSales.toFixed(2), // total order volume
     userGrowth,
-    monthlyRevenue,
+    monthlyRevenue: monthlyRevenueWithCommission,
   });
 });
