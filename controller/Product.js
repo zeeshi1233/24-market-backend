@@ -5,6 +5,7 @@ import User from "../model/UserSchema.js";
 
 export const productValidationSchema = Joi.object({
   category: Joi.string().required(),
+  subCategory: Joi.string().required(),
   brand: Joi.string().required(),
   title: Joi.string().min(3).max(100).required(),
   description: Joi.string().min(10).required(),
@@ -327,3 +328,4 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+
