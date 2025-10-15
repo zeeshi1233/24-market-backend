@@ -20,6 +20,7 @@ export const productValidationSchema = Joi.object({
 
 const productUpdateSchema = Joi.object({
   category: Joi.string(),
+  subCategory: Joi.string().required(),
   brand: Joi.string(),
   title: Joi.string().min(3).max(100),
   description: Joi.string().min(10),
@@ -328,4 +329,5 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+
 
