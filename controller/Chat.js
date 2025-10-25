@@ -79,4 +79,3 @@ export const GetAllChatRoom = async (req, res) => {
 //   }
 // });
 
-export default router;
