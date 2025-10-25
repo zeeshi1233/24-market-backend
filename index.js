@@ -13,6 +13,7 @@ import AdminRouter from "./router/AdminRoutes.js";
 import premiumAdsRoute from "./router/PremiumAdsRoute.js";
 import auctionRouter from "./router/AuctionRoutes.js";
 import "./Middleware/auctionScheduler.js"; 
+import chatRoutes from "./router/chatRoute.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use("/wishlist", wishListRoute);
 app.use("/payment", CardRoute);
 app.use("/premium-ads", premiumAdsRoute);
 app.use("/auction", auctionRouter);
+app.use("/chat", chatRoutes);
 
 // Admin Routes
 app.use("/admin", AdminRouter);
