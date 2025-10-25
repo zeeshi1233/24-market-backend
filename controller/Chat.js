@@ -1,4 +1,4 @@
-import { ChatRoom, Message } from "../model/Chat";
+import { ChatRoom, Message } from "../model/Chat.js";
 
 // ✅ 1. Create or get existing chat room between two users
 export const CreateRoom = async (req, res) => {
